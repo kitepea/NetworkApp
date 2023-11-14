@@ -10,9 +10,10 @@ SERVER_TIMEOUT = 2
 
 
 class Server(object):
-    def __init__(self, server_port):
-        # The server's port number
+    def __init__(self, hostname, server_port):
+        self.hostname = hostname
         self.server_port = server_port
+        self.client_socket = None
 
         # Create dictionary for TCP table
         self.hostname_to_ip = {}
@@ -35,6 +36,19 @@ class Server(object):
         self.active_status = False
         #
 
+        # REGISTER FUCNTION ALTERNATIVE
+        if self.hostname in list(self.hostname_list.keys()):
+            payload = 'DUPLICATE'
+        else:
+            payload = 'OK'
+            self.hostname_file[hostname] = []
+            with open("hostname_list.json", "w") as fp:
+                json.dump(self.hostname_list, fp, indent=4)
+            with open("hostname_file.json", "w") as fp:
+                json.dump(self.hostname_file, fp, indent=4)
+        self.response_message_innit = Message(Header.REGISTER, Type.RESPONSE, payload)
+        #
+
         # Create output queue
         self.output_queue = Queue(maxsize=100)
         self.queue_mutex = Lock()
@@ -54,6 +68,30 @@ class Server(object):
         while True:
             try:
                 client_socket, addr = self.server_socket.accept()
+                self.client_socket = client_socket
+                # Send response message that haven't sent from the innit
+                self.send(client_socket, self.response_message_innit)
+
+                # LOGIN FUNCTION ALTERNATIVE, CANNOT PUT IN INNIT DUE TO LACK OF ADDRESS
+                if self.hostname in list(self.hostname_list.keys()):
+                    payload = 'OK'
+                    if self.hostname in list(self.hostname_to_ip.keys()):
+                        prev_address = self.hostname_to_ip[hostname]
+                        self.hostname_to_ip[hostname] = addr[0]
+                        self.ip_to_hostname.pop(prev_address)
+                        self.ip_to_hostname[addr[0]] = hostname
+                    else:
+                        self.hostname_to_ip[hostname] = addr[0]
+                        self.ip_to_hostname[addr[0]] = hostname
+                    if not self.check_authentic(hostname):
+                        self.hostname_to_ip.pop(hostname)
+                        self.ip_to_hostname.pop(addr[0])
+                        payload = 'AUTHENTIC'
+                else:
+                    payload = 'HOSTNAME'
+                response_message = Message(Header.LOG_IN, Type.RESPONSE, payload)
+                self.send(client_socket, response_message)
+
                 if addr[0] not in list(self.ip_to_hostname.keys()):
                     hostname = None
                 else:
@@ -64,7 +102,7 @@ class Server(object):
             except (Exception,):
                 break
 
-    def handle_client(self, client_socket, hostname, address):
+    def handle_client(self, client_socket, hostname):
         """
         This method is used to handle requests for each client
 
@@ -98,22 +136,22 @@ class Server(object):
                     output += self.publish(client_socket, hostname, message)
 
                 # REQUEST, REGISTER
-                elif message_header == Header.REGISTER:
-                    output += self.register(client_socket, message)
+                # elif message_header == Header.REGISTER:
+                #     output += self.register(client_socket, message)
 
                 # REQUEST, FETCH
                 elif message_header == Header.FETCH:
                     output += self.fetch(client_socket, hostname, message)
 
                 # REQUEST, LOG_IN
-                elif message_header == Header.LOG_IN:
-                    output += self.login(client_socket, address, message)
+                # elif message_header == Header.LOG_IN:
+                #     output += self.login(client_socket, address, message)
 
                 # REQUEST, LOG_OUT
-                elif message_header == Header.LOG_OUT:
-                    output += f"Client {hostname}: LOG_OUT\n"
-                    status = self.logout(client_socket, hostname)
-                    output += f"Status: {status}\n"
+                # elif message_header == Header.LOG_OUT:
+                #     output += f"Client {hostname}: LOG_OUT\n"
+                #     status = self.logout(client_socket, hostname)
+                #     output += f"Status: {status}\n"
         except Exception as e:
             output += f"Server request handling error for client {hostname}\n"
             output += f"Status: {e}\n"
@@ -237,100 +275,100 @@ class Server(object):
                 client_info += f"--Error--: {e}\n"
                 return client_info
 
-    def register(self, client_socket, message):
-        """
-        This method is used to response to REGISTER request. There are two types of response message which are OK if
-        provided hostname is available and DUPLICATE otherwise
+    # def register(self, client_socket, message):
+    #     """
+    #     This method is used to response to REGISTER request. There are two types of response message which are OK if
+    #     provided hostname is available and DUPLICATE otherwise
 
-        Parameters:
-        - client_socket (socket): Connection between client and server itself
-        - message (Message): Request message from client
+    #     Parameters:
+    #     - client_socket (socket): Connection between client and server itself
+    #     - message (Message): Request message from client
 
-        Return:
-        - None
-        """
-        info = message.get_info()
-        hostname = info['hostname']
-        password = info['password']
-        if hostname in list(self.hostname_list.keys()):
-            payload = 'DUPLICATE'
-        else:
-            payload = 'OK'
-            self.hostname_list[hostname] = password
-            self.hostname_file[hostname] = []
-            with open("hostname_list.json", "w") as fp:
-                json.dump(self.hostname_list, fp, indent=4)
-            with open("hostname_file.json", "w") as fp:
-                json.dump(self.hostname_file, fp, indent=4)
-        response_message = Message(Header.REGISTER, Type.RESPONSE, payload)
-        self.send(client_socket, response_message)
+    #     Return:
+    #     - None
+    #     """
+    #     info = message.get_info()
+    #     hostname = info['hostname']
+    #     password = info['password']
+    #     if hostname in list(self.hostname_list.keys()):
+    #         payload = 'DUPLICATE'
+    #     else:
+    #         payload = 'OK'
+    #         self.hostname_list[hostname] = password
+    #         self.hostname_file[hostname] = []
+    #         with open("hostname_list.json", "w") as fp:
+    #             json.dump(self.hostname_list, fp, indent=4)
+    #         with open("hostname_file.json", "w") as fp:
+    #             json.dump(self.hostname_file, fp, indent=4)
+    #     response_message = Message(Header.REGISTER, Type.RESPONSE, payload)
+    #     self.send(client_socket, response_message)
 
-        status = f"Client {hostname}: REGISTER\n"
-        if payload == 'OK':
-            status += f"Password: {password}\n"
-        status += f"Status: {payload}\n"
-        return status
+    #     status = f"Client {hostname}: REGISTER\n"
+    #     if payload == 'OK':
+    #         status += f"Password: {password}\n"
+    #     status += f"Status: {payload}\n"
+    #     return status
 
-    def login(self, client_socket, address, message):
-        """
-        This method is used to response to LOG_IN request and modifying the mapping between hostname and IP address.
-        There are three types of response message which are OK if log in successfully, PASSWORD if incorrect password,
-        HOSTNAME if hostname does not exist and AUTHENTIC if list published files list on server not match with on local
+    # def login(self, client_socket, address, message):
+    #     """
+    #     This method is used to response to LOG_IN request and modifying the mapping between hostname and IP address.
+    #     There are three types of response message which are OK if log in successfully, PASSWORD if incorrect password,
+    #     HOSTNAME if hostname does not exist and AUTHENTIC if list published files list on server not match with on local
 
-        Parameters:
-        - client_socket (socket): Connection between client and server itself
-        - address (str): IP address of client
-        - message (Message): Request message from client
+    #     Parameters:
+    #     - client_socket (socket): Connection between client and server itself
+    #     - address (str): IP address of client
+    #     - message (Message): Request message from client
 
-        Return:
-        - None
-        """
-        info = message.get_info()
-        hostname = info['hostname']
-        password = info['password']
-        if hostname in list(self.hostname_list.keys()):
-            if password != self.hostname_list[hostname]:
-                payload = 'PASSWORD'
-            else:
-                payload = 'OK'
-                if hostname in list(self.hostname_to_ip.keys()):
-                    prev_address = self.hostname_to_ip[hostname]
-                    self.hostname_to_ip[hostname] = address
-                    self.ip_to_hostname.pop(prev_address)
-                    self.ip_to_hostname[address] = hostname
-                else:
-                    self.hostname_to_ip[hostname] = address
-                    self.ip_to_hostname[address] = hostname
-                if not self.check_authentic(hostname):
-                    self.hostname_to_ip.pop(hostname)
-                    self.ip_to_hostname.pop(address)
-                    payload = 'AUTHENTIC'
-        else:
-            payload = 'HOSTNAME'
-        response_message = Message(Header.LOG_IN, Type.RESPONSE, payload)
-        self.send(client_socket, response_message)
+    #     Return:
+    #     - None
+    #     """
+    #     info = message.get_info()
+    #     hostname = info['hostname']
+    #     password = info['password']
+    #     if hostname in list(self.hostname_list.keys()):
+    #         if password != self.hostname_list[hostname]:
+    #             payload = 'PASSWORD'
+    #         else:
+    #             payload = 'OK'
+    #             if hostname in list(self.hostname_to_ip.keys()):
+    #                 prev_address = self.hostname_to_ip[hostname]
+    #                 self.hostname_to_ip[hostname] = address
+    #                 self.ip_to_hostname.pop(prev_address)
+    #                 self.ip_to_hostname[address] = hostname
+    #             else:
+    #                 self.hostname_to_ip[hostname] = address
+    #                 self.ip_to_hostname[address] = hostname
+    #             if not self.check_authentic(hostname):
+    #                 self.hostname_to_ip.pop(hostname)
+    #                 self.ip_to_hostname.pop(address)
+    #                 payload = 'AUTHENTIC'
+    #     else:
+    #         payload = 'HOSTNAME'
+    #     response_message = Message(Header.LOG_IN, Type.RESPONSE, payload)
+    #     self.send(client_socket, response_message)
 
-        status = f"Client {hostname}: LOG_IN\n"
-        status += f"Status: {payload}\n"
-        return status
+    #     status = f"Client {hostname}: LOG_IN\n"
+    #     status += f"Status: {payload}\n"
+    #     return status
 
-    def logout(self, client_socket, hostname):
-        """
-        This method is used to response to LOG_OUT
+    # def logout(self, client_socket, hostname):
+    #     """
+    #     This method is used to response to LOG_OUT
 
-        Parameters:
-        - client_socket (socket): Connection between client and server itself
-        - hostname (str): Hostname of client
+    #     Parameters:
+    #     - client_socket (socket): Connection between client and server itself
+    #     - hostname (str): Hostname of client
 
-        Return:
-        - None
-        """
-        del_address = self.hostname_to_ip[hostname]
-        self.hostname_to_ip.pop(hostname)
-        self.ip_to_hostname.pop(del_address)
-        response_message = Message(Header.LOG_OUT, Type.RESPONSE, 'OK')
-        self.send(client_socket, response_message)
-        return 'OK'
+    #     Return:
+    #     - None
+    #     """
+    #     del_address = self.hostname_to_ip[hostname]
+    #     self.hostname_to_ip.pop(hostname)
+    #     self.ip_to_hostname.pop(del_address)
+    #     response_message = Message(Header.LOG_OUT, Type.RESPONSE, 'OK')
+    #     self.send(client_socket, response_message)
+    #     return 'OK'
 
     def fetch(self, client_socket, hostname, message):
         """
@@ -498,6 +536,10 @@ class Server(object):
         Return:
         - None
         """
+        # LOGOUT ALTERNATIVE FUNCTION
+        response_message = Message(Header.LOG_OUT, Type.RESPONSE, 'OK')
+        self.send(self.client_socket, response_message)
+
         self.active_status = False
         if self.server_socket:
             self.server_socket.close()
