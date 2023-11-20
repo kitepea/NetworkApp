@@ -6,8 +6,8 @@ CLNAME = socket.gethostname()
 CLHOST = socket.gethostbyname(CLNAME)
 CLPORT = 1111
 class ClientApp:
-    def __init__(self, server_host, server_port, client_host, client_hostname, client_port):
-        client = Client(server_host, server_port, client_host, client_hostname, client_port)
+    def __init__(self, server_host, server_port, client_host, client_port):
+        client = Client(server_host, server_port, client_host, client_port)
     def run(self):
          while True:
             request = input("Enter your request:")
@@ -19,11 +19,11 @@ class ClientApp:
                 fName = input("fName=")
                 self.client.publish()
             elif request == "leave":
-                self.client.exit()
+                self.client.leave()
                 break
 
 def main():
-    app = ClientApp(SVPORT, SVPORT, CLHOST, CLNAME, CLPORT)
+    app = ClientApp(SVPORT, SVPORT, CLHOST, CLPORT)
     app.run()
 if __name__ == "__main__":
     main()
