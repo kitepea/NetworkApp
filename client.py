@@ -28,11 +28,10 @@ class Client:
             with open("local_files.json", "w") as f:
                 f.write("{}")
         if not os.path.exists("downloads/"):
-            os.mkdir("downloads/")
+             os.mkdir("downloads/")
 
         with open("local_files.json", "r") as f:
             self.files = json.load(f)
-
 
         self.fpt_t = self.FTPServer(self.host)
         self.fpt_t.start()
@@ -273,7 +272,7 @@ class Client:
             handler.authorizer = authorizer
             handler.banner = "Connection Success"
 
-            self.server = ThreadedFTPServer((self.host_ip, 21), handler)
+            self.server = ThreadedFTPServer((self.host_ip, 7777), handler)
             self.server.max_cons = 256
             self.server.max_cons_per_ip = 5
 
