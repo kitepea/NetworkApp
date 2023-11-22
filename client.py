@@ -27,8 +27,8 @@ class Client:
         if not os.path.exists("local_files.json") or os.path.getsize("local_files.json") == 0:
             with open("local_files.json", "w") as f:
                 f.write("{}")
-        if not os.path.exists("/downloads"):
-            os.mkdir("/downloads")
+        if not os.path.exists("downloads/"):
+            os.mkdir("downloads/")
 
         with open("local_files.json", "r") as f:
             self.files = json.load(f)
