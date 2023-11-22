@@ -1,4 +1,5 @@
 import socket
+import sys
 from threading import Thread
 from ftplib import FTP
 from messageProtocol import Message, Type, Header
@@ -22,37 +23,61 @@ class Client:
     def run(self):
         self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.listen_socket.bind((self.host, self.port))
-        self.listen_socket.setblocking(1)
-        if not os.path.exists("local_files.json"):
+
+        if not os.path.exists("local_files.json") or os.path.getsize("local_files.json") == 0:
             with open("local_files.json", "w") as f:
                 f.write("{}")
-        with open(".json", "r") as f:
+        if not os.path.exists("/downloads"):
+            os.mkdir("/downloads")
+
+        with open("local_files.json", "r") as f:
             self.files = json.load(f)
+
+
         self.fpt_t = self.FTPServer(self.host)
-        self.lis_t = Thread(target=self.listen())
+        self.fpt_t.start()
+        self.lis_t = Thread(target=self.listen)
         self.lis_t.start()
-    def register(self):
-        tmp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            tmp_sock.connect((self.server_host, self.server_port))
-        except:
-            raise Exception('CONNECT_SERVER_SOCKET_ERROR when REGISTER')
+        print("Start getting input")
+        self.command()
+
+    def command(self):
         while True:
-            hostname = ""
-            input("Type host name: ", hostname)
+            request = input("Enter your request:")
+            if request == "fetch":
+                fName = input("Type file name that you want:")
+                self.fetch(fName)
+            elif request == "public":
+                lName = input("lName=")
+                fName = input("fName=")
+                self.publish(lName,fName)
+            elif request == "leave":
+                self.leave()
+                break
+    def register(self):
+            tmp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                tmp_sock.connect((self.server_host, self.server_port))
+            except Exception as e:
+                raise Exception(e)
+
+            hostname = socket.gethostname()
             payload = {'hostname': hostname}
             request = Message(Header.REGISTER, Type.REQUEST, payload)
             self.send(request, tmp_sock)
 
             # Handle server's response
             msg = tmp_sock.recv(2048).decode()
-            response = Message(Header.REGISTER, Type.RESPONSE, msg)
+            tmp_sock.close()
+            response = Message(None, None,None, msg)
             result = response.get_info()['result']
             if result == 'OK':
                 self.hostname = hostname
-                break
-        tmp_sock.close()
-        self.run
+                print("Running..")
+                self.run()
+            else:
+                raise Exception(f"ERROR when REGISTER: {result}")
+
     def leave(self):
         tmp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
@@ -62,19 +87,18 @@ class Client:
         payload = {'hostname': self.hostname}
         request = Message(Header.LEAVE, Type.REQUEST, payload)
         self.send(request, tmp_sock)
-
-
         #Handle server response
         msg = tmp_sock.recv(2048).decode()
-        response = Message(Header.LEAVE, Type.RESPONSE, msg)
+        response = Message(None, None, None, msg)
         result = response.get_info()['result']
         if(result == 'OK'):
             self.exit()
         else:
             print("Fail to leave!")
     def listen(self):
-        self.listen_socket.listen()
-        while True:
+        self.listen_socket.listen(5)
+        self.active = True
+        while self.active:
             try:
                 rcv_sock, snd_addr = self.listen_socket.accept()
                 new_t = Thread(target=self.reply_conn, args=(rcv_sock, snd_addr))
@@ -87,7 +111,6 @@ class Client:
             msg_data = rcv_sock.recv(2048).decode()
             msg = Message(None, None, None, msg_data)
             msg_header = msg.get_header()
-
             if msg_header == Header.PING and snd_addr[0] == self.server_host:
                 self.reply_ping(rcv_sock)
             elif msg_header == Header.DISCOVER and snd_addr[0] == self.server_host:
@@ -98,14 +121,17 @@ class Client:
             print(f"An error occurred when reply connection: {e}")
         finally:
             rcv_sock.close()
-        return
-    def reply_ping(self, rcv_sock):
-        # TODO
-        return
-    def reply_discover(self, sock):
-        response = Message(Header.DISCOVER, Type.RESPONSE, self.files)
+    def reply_ping(self, sock):
+        payload = {'result': 'Hello'}
+        response = Message(Header.PING, Type.RESPONSE, payload)
         self.send(response, sock)
-        return
+    def reply_discover(self, sock):
+        file_list = []
+        for f in self.files.keys():
+            file_list.append(f)
+        payload = {'file_list': file_list}
+        response = Message(Header.DISCOVER, Type.RESPONSE, payload)
+        self.send(response, sock)
     def reply_retrieve(self, sock, fName):
         if fName in self.files and os.path.exists(self.files[fName]):
            rs_msg = 'Accept'
@@ -128,7 +154,8 @@ class Client:
     def fetch(self, fName):
 
         # Request server
-        request = Message(Header.FETCH, Type.REQUEST, fName)
+        payload = { "fname": fName}
+        request = Message(Header.FETCH, Type.REQUEST, payload)
         tmp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             tmp_sock.connect((self.server_host, self.server_port))
@@ -145,10 +172,10 @@ class Client:
 
         if not dest_list:
             return 'NO_AVAILABLE_HOST'
-        return dest_list
+        else:
+            print(dest_list)
 
     def retrieve(self, fName, host):
-
         request = Message(Header.RETRIEVE, Type.REQUEST, fName)
         tmp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tmp_sock.settimeout(5)
@@ -198,9 +225,16 @@ class Client:
 
 
     def exit(self):
-        self.fpt_t.join()
+        self.listen_socket.close()
+        print("listen socket closed")
+        self.active = False
         self.lis_t.join()
-        return
+        print("listen thread joined")
+        self.fpt_t.stop()
+        self.fpt_t.join()
+        print("FTP server thread joined")
+        print("System exited")
+        sys.exit()
 
     def publish(self, lName, fName):
         # Send publish request
@@ -234,8 +268,7 @@ class Client:
             self.host_ip = host_ip
             # Initialize FTP server
             authorizer = DummyAuthorizer()
-            self.check_cache(None)
-            authorizer.add_user('admin', 'admin', './home', perm='r')
+            authorizer.add_user('admin', 'admin', './', perm='r')
             handler = FTPHandler
             handler.authorizer = authorizer
             handler.banner = "Connection Success"
@@ -246,8 +279,7 @@ class Client:
 
         def run(self):
             self.server.serve_forever()
-
-        def exit(self):
+        def stop(self):
             self.server.close_all()
 
     # FTP server on another thread

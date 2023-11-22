@@ -6,7 +6,8 @@ from queue import Queue
 from threading import Thread
 from messageProtocol import Message, Type, Header
 
-SERVER_TIMEOUT = 2
+SERVER_TIMEOUT = 5
+CLPORT = 1111
 
 
 class Server:
@@ -17,85 +18,67 @@ class Server:
         if not os.path.exists("hostname_file.json") or os.path.getsize("hostname_file.json") == 0:
             with open("hostname_file.json", "w") as fp:
                 fp.write("{}")
+        with open("hostname_file.json", "r") as f:
+            self.hostname_file = json.load(f)
         self.start()
 
     def start(self):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.bind((socket.gethostbyname(
-            socket.gethostname()), self.server_port))
-        #
-        self.server_socket.setblocking(1)  # try setting this to 1
+        self.server_socket.bind((socket.gethostbyname(socket.gethostname()), self.server_port))
         #
         print(f"Server's running on {socket.gethostbyname(socket.gethostname())}, port: {self.server_port}")
-        listen_thread = Thread(target=self.listen, args=())
-        listen_thread.start()
-
-    def close(self):
-        # LOGOUT ALTERNATIVE FUNCTION
-        response_message = Message(Header.LOG_OUT, Type.RESPONSE, 'OK')
-        self.send(self.client_socket, response_message)
-
-        self.active_status = False
-        if self.server_socket:
-            self.server_socket.close()
-        self.ip_to_hostname = {}
-        self.hostname_to_ip = {}
+        self.server_socket.listen(5)
+        lis_t = Thread(target=self.listen, args=())
+        lis_t.start()
+        self.command()
+    def command(self):
+        while True:
+            request = input("Enter your request:")
+            if request == "ping":
+                print(f"Current clients:{self.clients}")
+                hostname = input("Chose hostname: ")
+                self.ping(hostname)
+            elif request == "discover":
+                print(f"Current_clients:{self.clients}")
+                hostname = input("Chose hostname: ")
+                self.discover(hostname)
 
     def listen(self):
-
-        self.server_socket.listen()
-        print("Running ... Waiting for connection")
-        # self.active_status = True
-        while True:
+        self.active = True
+        while self.active:
             try:
+                print("Running ... Waiting for connection")
                 client_socket, client_addr = self.server_socket.accept()
-                #add new info client and start thread
-                #check whether this ip have existed yet
                 hostname = ""
-
                 for k, v in self.clients.items():
-                    if client_addr[0] == v:
-                        hostname = k
-                        break
-                if hostname != "":
-                    client_t = Thread(target=self.handle_client, args=(client_socket, hostname))
-                    client_t.start()
-                else:
-                    client_t = Thread(target=self.register, args=(client_socket, client_addr[0]))
-                    client_t.start()
-            except (Exception,):
-                break
-    def register(self, client_socket, ip):
-        try:
-            client_socket.settimeout(SERVER_TIMEOUT)
-            message = client_socket.recv(1024).decode()
-            if not message:
-                client_socket.close()
-            else:
-                message = Message(None, None, None, message)
-                message_header = message.get_header()
-            if message_header == Header.REGISTER:
-                hostname = message.get_info()["hostname"]
-                payload = {'result' : 'OK'}
-                for k in self.clients.keys():
-                    if hostname == k:
-                        payload['result'] = "DULICATED"
-                        break
-                if payload['result'] == 'OK':
-                    print("Curent clients active: ",self.clients)
-                    self.clients[hostname] = ip
-                response = Message(Header.REGISTER, Type.RESPONSE, payload)
-                self.send(response, client_socket)
-        except Exception as e:
-            print(f"Server request handling error for client {ip}\n")
-            print(f"Status: {e}\n")
+                     if client_addr[0] == v:
+                         hostname = k
+                         break
+                client_t = Thread(target=self.handle_client, args=(client_socket, hostname, client_addr[0]))
+                client_t.start()
+            except Exception as e:
+                raise Exception(e)
 
-    def handle_client(self, client_socket, hostname):
-
+    def register(self, client_socket:socket, message, ip):
+            hostname = message.get_info()['hostname']
+            payload = {'result': 'OK'}
+            for k in self.clients.keys():
+                if hostname == k:
+                    payload['result'] = "DULICATED"
+                    break
+            print(payload['result'])
+            if payload['result'] == 'OK':
+                self.clients[hostname] = ip
+                self.hostname_file[hostname] = []
+                print("Curent clients active: ", self.clients)
+            response = Message(Header.REGISTER, Type.RESPONSE, payload)
+            self.send(response, client_socket)
+    def handle_client(self, client_socket, hostname, ip):
+        print("Here")
         try:
             # Listen to message from client
             client_socket.settimeout(SERVER_TIMEOUT)
-            message = client_socket.recv(1024).decode()
+            message = client_socket.recv(2048).decode()
 
             # Clients have terminated the connection
             if not message:
@@ -108,38 +91,46 @@ class Server:
 
                 # Handle each kind of message
                 # REQUEST, REGISTER
-
+                if message_header == Header.REGISTER:
+                    self.register(client_socket, message, ip)
                 # REQUEST, PUBLISH
-                if message_header == Header.PUBLISH:
-                    print(self.publish(client_socket, hostname, message))
+                elif message_header == Header.PUBLISH:
+                    self.publish(client_socket, hostname, message)
                 # REQUEST, FETCH
                 elif message_header == Header.FETCH:
-                    print(self.fetch(client_socket, hostname, message))
+                    self.fetch(client_socket, hostname, message)
                 # REQUEST, LEAVE
                 elif message_header == Header.LEAVE:
-                    print(self.leave(client_socket, hostname))
+                    self.leave(client_socket, hostname)
 
         except Exception as e:
-            print(f"Server request handling error for client {hostname}\n")
-            print(f"Status: {e}\n")
+            print(f"Server request handling error for client {hostname}")
+            print(f"Status: {e}")
 
 
     def publish(self, client_socket, hostname, message):
-
+        print("call pl")
         info = message.get_info()
         fname = info['fname']
         lname = info['lname']
-        payload = {'fname': fname, 'lname': lname, 'result': None}
+        print(fname)
+        print(lname)
+        payload = { 'result': None}
         if fname not in self.hostname_file[hostname]:
+            print("1")
             self.hostname_file[hostname].append(fname)
             payload['result'] = 'OK'
+            print("2")
             with open("hostname_file.json", "w") as fp:
                 json.dump(self.hostname_file, fp, indent=4)
+            print("3")
         else:
+            print("4")
             payload['result'] = 'DUPLICATE'
+        print(payload)
         response_message = Message(Header.PUBLISH, Type.RESPONSE, payload)
-        self.send(client_socket, response_message)
-
+        self.send(response_message, client_socket)
+        print("sent")
         status = f"Client {hostname}: PUBLISH\n"
         if payload['result'] == 'OK':
             status += f'File name: {fname}\n'
@@ -147,69 +138,54 @@ class Server:
         return status
 
     def ping(self, hostname):
-
-        client_info = f"--Client--: {hostname}\n"
-        if hostname in list(self.hostname_list.keys()):
-            if hostname in list(self.hostname_to_ip.keys()):
-                client_ip = self.hostname_to_ip[hostname]
-            else:
-                return client_info + "--Status--: NOT LOGIN YET\n"
-        else:
-            return client_info + "--Status--: NOT REGISTER YET\n"
-
+        if hostname not in list(self.clients.keys()):
+             return  "PING: NOT FOUND THIS CLIENT\n"
+        ip = self.clients[hostname]
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
             try:
                 client_socket.settimeout(SERVER_TIMEOUT)
-                client_socket.connect((client_ip, 5001))
+                client_socket.connect((ip, CLPORT))
                 message = Message(Header.PING, Type.REQUEST, 'PING')
                 start_time = time.time()
-                self.send(client_socket, message)
+                self.send(message, client_socket)
                 response_message = client_socket.recv(2048).decode()
                 end_time = time.time()
-                round_trip_time = "{:,.8f}".format(end_time - start_time)
+                response = Message(None, None, None, response_message)
+                RTT = "{:,.8f}".format(end_time - start_time)
                 if response_message:
-                    client_info += "--Status--: ALIVE\n"
-                    client_info += f"--Round-Trip Time--: {round_trip_time} (s)\n"
-                    return client_info
+                    print(f"PING OK: {response.get_info()['result']}")
+                    print( f"Round-Trip Time: {RTT} (s)\n")
+                client_socket.close()
             except Exception as e:
-                client_info += f"--Status--: NOT ALIVE\n"
-                client_info += f"--Error--: {e}\n"
-                return client_info
+                 print(e)
 
     def discover(self, hostname):
 
-        client_info = f"--Client--: {hostname}\n"
         if hostname not in list(self.clients.keys()):
-            return client_info + "--Status--: NOT REGISTER YET\n"
+            print("DISCOVER: NOT FOUND THIS CLIENT")
 
         client_ip = self.clients[hostname]
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
             try:
                 client_socket.settimeout(SERVER_TIMEOUT)
-                client_socket.connect((client_ip, 5001))
+                client_socket.connect((client_ip, CLPORT))
                 message = Message(Header.DISCOVER, Type.REQUEST, 'DISCOVER')
                 start_time = time.time()
-                self.send(client_socket, message)
+                self.send(message, client_socket)
                 response_message = client_socket.recv(2048).decode()
                 end_time = time.time()
-                round_trip_time = "{:,.8f}".format(end_time - start_time)
-                file_list = Message(
-                    None, None, None, response_message).get_info()
-                status = "--Status--: SUCCESS\n"
-                status += f"--Round-Trip Time: {round_trip_time} (s)\n"
-                status += "--File list--:\n"
-                for file in list(file_list.keys()):
-                    status += str(file) + '\n'
-                return client_info + status
+                RTT = "{:,.8f}".format(end_time - start_time)
+                file_list = Message(None, None, None, response_message).get_info()["file_list"]
+                print(f"DISCOVER OK: {file_list}")
+                print(f"Round-Trip Time: {RTT} (s)\n")
+
             except Exception as e:
-                client_info += f"--Status--: FAIL\n"
-                client_info += f"--Error--: {e}\n"
-                return client_info
+                print(e)
 
     def fetch(self, client_socket, hostname, message):
-        fname = message.get_info()
-        ip_list = self.search(fname, client_socket.getpeername()[0])
+        fname = message.get_info()["fname"]
+        ip_list = self.search(fname, hostname)
         payload = {'fname': fname, 'avail_ips': ip_list}
         response = Message(Header.FETCH, Type.RESPONSE, payload)
         self.send(client_socket, response)
@@ -218,19 +194,19 @@ class Server:
         status += f"Status: OK\n"
         return status
 
-    def search(self, fname, asking_ip):
+    def search(self, fname, asking_hostname):
         ip_list = []
         for hostname, file_list in self.hostname_file.items():
-            if asking_ip != self.hostname_to_ip[hostname] and fname in file_list:
-                # if self.check_active(hostname):
+            if asking_hostname != hostname  and hostname in list(self.clients.keys()) and fname in file_list:
                 ip_list.append(self.clients[hostname])
         return ip_list
     def leave(self, client_socket, hostname):
         self.clients.pop(hostname)
-        response = Message(Header.LEAVE, Type.RESPONSE, 'OK')
-        self.send(client_socket, response)
-        return f'{hostname}LEAVE OK'
-    def send(msg: Message, sock):
+        payload = {'result': 'OK'}
+        response = Message(Header.LEAVE, Type.RESPONSE, payload)
+        self.send(response, client_socket)
+        print(f"{hostname} LEAVE OK")
+    def send(self,msg: Message, sock: socket):
         encoded_msg = json.dumps(msg.get_packet()).encode()
         dest = sock.getpeername()[0]
         try:
