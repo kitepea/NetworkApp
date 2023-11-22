@@ -133,13 +133,18 @@ class Client:
         response = Message(Header.DISCOVER, Type.RESPONSE, payload)
         self.send(response, sock)
     def reply_retrieve(self, sock, fName):
-        if fName in self.files and os.path.exists(self.files[fName]):
+        payload = {}
+        if fName in list(self.files.keys()) and os.path.exists(self.files[fName]):
            rs_msg = 'Accept'
            print('Accept Retrive')
+           payload['lname'] = self.files[fName]
         else:
            rs_msg = 'Deny'
            print('Deny Retrive')
-        response = Message(Header.RETRIEVE,Type.RESPONSE, rs_msg)
+
+        payload['result'] = rs_msg
+
+        response = Message(Header.RETRIEVE,Type.RESPONSE, payload)
         self.send(response, sock)
 
     def send(self, msg: Message, sock:socket):
@@ -197,12 +202,15 @@ class Client:
 
         # Process the response
         response = Message(None, None, None, msg)
-        result = response.get_info()
+        result = response.get_info()['result']
+
         # Check if it accepts or refuses to send the file. If DENIED, try other hosts
         if result == 'DENY':
             print("DENY RETRIVE FILE")
+            return
 
         # If it has accepted, proceed file transfering using FTP
+        lName = response.get_info()['lname']
 
         # Handle non-existing download directory
         if not os.path.exists("downloads/"):
@@ -220,7 +228,7 @@ class Client:
         ftp.login('admin', 'admin')
 
         with open("downloads/" + dest_file, 'wb') as f:
-            ftp.retrbinary(f'RETR {self.files[fName]}', f.write)
+            ftp.retrbinary(f'RETR {lName}', f.write)
 
         ftp.quit()
         # File transfer protocol ends
