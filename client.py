@@ -11,7 +11,7 @@ import json
 import time
 
 PORT = 8888
-FTPPORT = 7777
+FTPPORT = 21
 
 class Client:
     def __init__(self, server_host, server_port, host, port):
@@ -220,7 +220,7 @@ class Client:
         ftp.login('admin', 'admin')
 
         with open("downloads/" + dest_file, 'wb') as f:
-            ftp.retrbinary(f'RETR {fName}', f.write)
+            ftp.retrbinary(f'RETR {self.files[fName]}', f.write)
 
         ftp.quit()
         # File transfer protocol ends
@@ -268,16 +268,16 @@ class Client:
             self.host_ip = host_ip
             # Initialize FTP server
             authorizer = DummyAuthorizer()
-            authorizer.add_user('admin', 'admin', './', perm='r')
+            authorizer.add_user('admin', 'admin', '.', perm='elradfmwM')
             handler = FTPHandler
             handler.authorizer = authorizer
-            handler.banner = "Connection Success"
-
+            handler.banner = "Connect FTP Server Success"
             self.server = ThreadedFTPServer((self.host_ip, FTPPORT), handler)
             self.server.max_cons = 256
             self.server.max_cons_per_ip = 5
 
         def run(self):
+            print(f"FTP Server start on {self.host_ip}:{FTPPORT}")
             self.server.serve_forever()
         def stop(self):
             self.server.close_all()
