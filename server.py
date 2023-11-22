@@ -15,11 +15,12 @@ class Server:
         self.server_port = server_port
         # Create dictionary for TCP table
         self.clients = {}
-        if not os.path.exists("hostname_file.json") or os.path.getsize("hostname_file.json") == 0:
-            with open("hostname_file.json", "w") as fp:
-                fp.write("{}")
-        with open("hostname_file.json", "r") as f:
-            self.hostname_file = json.load(f)
+        # if not os.path.exists("hostname_file.json") or os.path.getsize("hostname_file.json") == 0:
+        #     with open("hostname_file.json", "w") as fp:
+        #         fp.write("{}")
+        # with open("hostname_file.json", "r") as f:
+        #     self.hostname_file = json.load(f)
+        self.hostname_file = {}
         self.start()
 
     def start(self):
@@ -107,7 +108,6 @@ class Server:
             print(f"Server request handling error for client {hostname}")
             print(f"Status: {e}")
 
-
     def publish(self, client_socket, hostname, message):
         print("call pl")
         info = message.get_info()
@@ -121,9 +121,9 @@ class Server:
             self.hostname_file[hostname].append(fname)
             payload['result'] = 'OK'
             print("2")
-            with open("hostname_file.json", "w") as fp:
-                json.dump(self.hostname_file, fp, indent=4)
-            print("3")
+            # with open("hostname_file.json", "w") as fp:
+            #     json.dump(self.hostname_file, fp, indent=4)
+            # print("3")
         else:
             print("4")
             payload['result'] = 'DUPLICATE'
@@ -160,7 +160,6 @@ class Server:
                  print(e)
 
     def discover(self, hostname):
-
         if hostname not in list(self.clients.keys()):
             print("DISCOVER: NOT FOUND THIS CLIENT")
 

@@ -11,6 +11,7 @@ import json
 import time
 
 PORT = 8888
+FTPPORT = 7777
 
 class Client:
     def __init__(self, server_host, server_port, host, port):
@@ -24,15 +25,15 @@ class Client:
         self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.listen_socket.bind((self.host, self.port))
 
-        if not os.path.exists("local_files.json") or os.path.getsize("local_files.json") == 0:
-            with open("local_files.json", "w") as f:
-                f.write("{}")
+        # if not os.path.exists("local_files.json") or os.path.getsize("local_files.json") == 0:
+        #     with open("local_files.json", "w") as f:
+        #         f.write("{}")
         if not os.path.exists("downloads/"):
              os.mkdir("downloads/")
 
-        with open("local_files.json", "r") as f:
-            self.files = json.load(f)
-
+        # with open("local_files.json", "r") as f:
+        #     self.files = json.load(f)
+        self.files = {}
         self.fpt_t = self.FTPServer(self.host)
         self.fpt_t.start()
         self.lis_t = Thread(target=self.listen)
@@ -134,8 +135,10 @@ class Client:
     def reply_retrieve(self, sock, fName):
         if fName in self.files and os.path.exists(self.files[fName]):
            rs_msg = 'Accept'
+           print('Accept Retrive')
         else:
            rs_msg = 'Deny'
+           print('Deny Retrive')
         response = Message(Header.RETRIEVE,Type.RESPONSE, rs_msg)
         self.send(response, sock)
 
@@ -170,6 +173,7 @@ class Client:
         dest_list = response.get_info()['avail_ips']
         if not dest_list:
             print('NO_AVAILABLE_HOST')
+            return
         else:
             print(dest_list)
         dest_host = input("Choose a host to retrive: ")
@@ -178,14 +182,15 @@ class Client:
     def retrieve(self, fName, host):
         request = Message(Header.RETRIEVE, Type.REQUEST, fName)
         tmp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        tmp_sock.settimeout(5)
         try:
+            tmp_sock.settimeout(5)
             tmp_sock.connect((host, self.port))
+            self.send(request, tmp_sock)
         except:
             return 'UNREACHABLE'
 
         # If request cannot be sent, return
-        self.send(request, tmp_sock)
+
         # Receive the response
         msg = tmp_sock.recv(2048).decode()
         tmp_sock.close()
@@ -252,8 +257,8 @@ class Client:
             return rs
         # Pulish success, add file to repository
         self.files[fName] = lName
-        with open("local_files.json", "w") as f:
-            json.dump(self.files, f, indent=4)
+        # with open("local_files.json", "w") as f:
+        #     json.dump(self.files, f, indent=4)
         return rs
 
 
@@ -268,7 +273,7 @@ class Client:
             handler.authorizer = authorizer
             handler.banner = "Connection Success"
 
-            self.server = ThreadedFTPServer((self.host_ip, 7777), handler)
+            self.server = ThreadedFTPServer((self.host_ip, FTPPORT), handler)
             self.server.max_cons = 256
             self.server.max_cons_per_ip = 5
 
