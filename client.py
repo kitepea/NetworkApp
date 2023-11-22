@@ -168,11 +168,12 @@ class Client:
         tmp_sock.close()
         response = Message(None, None, None, msg)
         dest_list = response.get_info()['avail_ips']
-
         if not dest_list:
             print('NO_AVAILABLE_HOST')
         else:
             print(dest_list)
+        dest_host = input("Choose a host to retrive: ")
+        self.retrieve(fName, dest_host)
 
     def retrieve(self, fName, host):
         request = Message(Header.RETRIEVE, Type.REQUEST, fName)
@@ -184,10 +185,7 @@ class Client:
             return 'UNREACHABLE'
 
         # If request cannot be sent, return
-        if not self.send(request, tmp_sock):
-            tmp_sock.close()
-            return 'UNREACHABLE'
-
+        self.send(request, tmp_sock)
         # Receive the response
         msg = tmp_sock.recv(2048).decode()
         tmp_sock.close()
@@ -196,8 +194,8 @@ class Client:
         response = Message(None, None, None, msg)
         result = response.get_info()
         # Check if it accepts or refuses to send the file. If DENIED, try other hosts
-        if result == 'Deny send file':
-            return result
+        if result == 'DENY':
+            print("DENY RETRIVE FILE")
 
         # If it has accepted, proceed file transfering using FTP
 
@@ -221,8 +219,6 @@ class Client:
 
         ftp.quit()
         # File transfer protocol ends
-
-
     def exit(self):
         self.listen_socket.close()
         print("listen socket closed")

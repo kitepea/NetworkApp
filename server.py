@@ -185,7 +185,9 @@ class Server:
 
     def fetch(self, client_socket, hostname, message):
         fname = message.get_info()["fname"]
+        print(f"Got fname:{fname}")
         ip_list = self.search(fname, hostname)
+        print(f"ip_list:{ip_list}")
         payload = {'fname': fname, 'avail_ips': ip_list}
         response = Message(Header.FETCH, Type.RESPONSE, payload)
         self.send(response, client_socket)
@@ -196,6 +198,9 @@ class Server:
 
     def search(self, fname, asking_hostname):
         ip_list = []
+        print(f"clients: {list(self.clients.keys())}")
+        print(f"asking hostname{asking_hostname}")
+        print(f"hostname_file = {self.hostname_file}")
         for hostname, file_list in self.hostname_file.items():
             if asking_hostname != hostname  and hostname in list(self.clients.keys()) and fname in file_list:
                 ip_list.append(self.clients[hostname])
