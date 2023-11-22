@@ -170,7 +170,7 @@ class Client:
         dest_list = response.get_info()['avail_ips']
 
         if not dest_list:
-            return 'NO_AVAILABLE_HOST'
+            print('NO_AVAILABLE_HOST')
         else:
             print(dest_list)
 

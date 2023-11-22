@@ -188,7 +188,7 @@ class Server:
         ip_list = self.search(fname, hostname)
         payload = {'fname': fname, 'avail_ips': ip_list}
         response = Message(Header.FETCH, Type.RESPONSE, payload)
-        self.send(client_socket, response)
+        self.send(response, client_socket)
         status = f"Client {hostname}: FETCH\n"
         status += f"File name: {fname}\n"
         status += f"Status: OK\n"
