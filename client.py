@@ -47,7 +47,7 @@ class Client:
             if request == "fetch":
                 fName = input("Type file name that you want:")
                 self.fetch(fName)
-            elif request == "public":
+            elif request == "publish":
                 lName = input("lName=")
                 fName = input("fName=")
                 self.publish(lName,fName)
@@ -291,3 +291,20 @@ class Client:
             self.server.close_all()
 
     # FTP server on another thread
+
+#
+SVHOST = '192.168.7.21'
+SVPORT = 8888
+CLNAME = socket.gethostname()
+CLHOST = socket.gethostbyname(CLNAME)
+CLPORT = 1111
+#
+class ClientApp:
+    def __init__(self, server_host, server_port, client_host, client_port):
+        client = Client(server_host, server_port, client_host, client_port)
+def main():
+    app = ClientApp(SVHOST, SVPORT, CLHOST, CLPORT)
+    print("Here")
+    # app.run()
+if __name__ == "__main__":
+    main()
