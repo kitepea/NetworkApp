@@ -25,14 +25,9 @@ class Client:
         self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.listen_socket.bind((self.host, self.port))
 
-        # if not os.path.exists("local_files.json") or os.path.getsize("local_files.json") == 0:
-        #     with open("local_files.json", "w") as f:
-        #         f.write("{}")
         if not os.path.exists("downloads/"):
              os.mkdir("downloads/")
 
-        # with open("local_files.json", "r") as f:
-        #     self.files = json.load(f)
         self.files = {}
         self.fpt_t = self.FTPServer(self.host)
         self.fpt_t.start()

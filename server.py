@@ -2,7 +2,6 @@ import time
 import socket
 import os
 import json
-from queue import Queue
 from threading import Thread
 from messageProtocol import Message, Type, Header
 
@@ -15,11 +14,6 @@ class Server:
         self.server_port = server_port
         # Create dictionary for TCP table
         self.clients = {}
-        # if not os.path.exists("hostname_file.json") or os.path.getsize("hostname_file.json") == 0:
-        #     with open("hostname_file.json", "w") as fp:
-        #         fp.write("{}")
-        # with open("hostname_file.json", "r") as f:
-        #     self.hostname_file = json.load(f)
         self.hostname_file = {}
         self.start()
 
@@ -121,9 +115,6 @@ class Server:
             self.hostname_file[hostname].append(fname)
             payload['result'] = 'OK'
             print("2")
-            # with open("hostname_file.json", "w") as fp:
-            #     json.dump(self.hostname_file, fp, indent=4)
-            # print("3")
         else:
             print("4")
             payload['result'] = 'DUPLICATE'
