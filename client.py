@@ -131,11 +131,11 @@ class Client:
         payload = {}
         if fName in list(self.files.keys()) and os.path.exists(self.files[fName]):
            rs_msg = 'Accept'
-           print('Accept Retrive')
+           print('Accept Retrieve')
            payload['lname'] = self.files[fName]
         else:
            rs_msg = 'Deny'
-           print('Deny Retrive')
+           print('Deny Retrieve')
 
         payload['result'] = rs_msg
 
@@ -176,7 +176,7 @@ class Client:
             return
         else:
             print(dest_list)
-        dest_host = input("Choose a host to retrive: ")
+        dest_host = input("Choose a host to retrieve: ")
         self.retrieve(fName, dest_host)
 
     def retrieve(self, fName, host):
@@ -201,7 +201,7 @@ class Client:
 
         # Check if it accepts or refuses to send the file. If DENIED, try other hosts
         if result == 'DENY':
-            print("DENY RETRIVE FILE")
+            print("DENY RETRIEVE FILE")
             return
 
         # If it has accepted, proceed file transfering using FTP
