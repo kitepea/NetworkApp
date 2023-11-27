@@ -4,6 +4,7 @@ import os
 import json
 from threading import Thread
 from messageProtocol import Message, Type, Header
+import sys
 
 SERVER_TIMEOUT = 5
 CLPORT = 1111
@@ -23,9 +24,15 @@ class Server:
         #
         print(f"Server's running on {socket.gethostbyname(socket.gethostname())}, port: {self.server_port}")
         self.server_socket.listen(5)
-        lis_t = Thread(target=self.listen, args=())
-        lis_t.start()
+        self.lis_t = Thread(target=self.listen, args=())
+        self.lis_t.start()
         self.command()
+    def exit(self):
+        self.active = False
+        self.lis_t.join()
+        self.server_socket.close()
+        sys.exit(0)
+
     def command(self):
         while True:
             request = input("Enter your request:")
@@ -37,6 +44,9 @@ class Server:
                 print(f"Current_clients:{self.clients}")
                 hostname = input("Chose hostname: ")
                 self.discover(hostname)
+            elif request == "exit":
+                self.exit()
+
 
     def listen(self):
         self.active = True

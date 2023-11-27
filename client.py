@@ -87,7 +87,7 @@ class Client:
         response = Message(None, None, None, msg)
         result = response.get_info()['result']
         if(result == 'OK'):
-            self.exit()
+            self.exit(0)
         else:
             print("Fail to leave!")
     def listen(self):
