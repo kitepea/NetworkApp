@@ -14,8 +14,7 @@ class Header(Enum):
     FETCH = 3
     REGISTER = 4
     RETRIEVE = 5
-    INITCON = 6
-    LEAVE = 7
+    LEAVE = 6
 
 
 

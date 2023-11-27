@@ -25,14 +25,9 @@ class Client:
         self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.listen_socket.bind((self.host, self.port))
 
-        # if not os.path.exists("local_files.json") or os.path.getsize("local_files.json") == 0:
-        #     with open("local_files.json", "w") as f:
-        #         f.write("{}")
         if not os.path.exists("downloads/"):
              os.mkdir("downloads/")
 
-        # with open("local_files.json", "r") as f:
-        #     self.files = json.load(f)
         self.files = {}
         self.fpt_t = self.FTPServer(self.host)
         self.fpt_t.start()
@@ -47,7 +42,7 @@ class Client:
             if request == "fetch":
                 fName = input("Type file name that you want:")
                 self.fetch(fName)
-            elif request == "public":
+            elif request == "publish":
                 lName = input("lName=")
                 fName = input("fName=")
                 self.publish(lName,fName)
@@ -136,11 +131,11 @@ class Client:
         payload = {}
         if fName in list(self.files.keys()) and os.path.exists(self.files[fName]):
            rs_msg = 'Accept'
-           print('Accept Retrive')
+           print('Accept Retrieve')
            payload['lname'] = self.files[fName]
         else:
            rs_msg = 'Deny'
-           print('Deny Retrive')
+           print('Deny Retrieve')
 
         payload['result'] = rs_msg
 
@@ -181,7 +176,7 @@ class Client:
             return
         else:
             print(dest_list)
-        dest_host = input("Choose a host to retrive: ")
+        dest_host = input("Choose a host to retrieve: ")
         self.retrieve(fName, dest_host)
 
     def retrieve(self, fName, host):
@@ -206,7 +201,7 @@ class Client:
 
         # Check if it accepts or refuses to send the file. If DENIED, try other hosts
         if result == 'DENY':
-            print("DENY RETRIVE FILE")
+            print("DENY RETRIEVE FILE")
             return
 
         # If it has accepted, proceed file transfering using FTP
@@ -291,3 +286,20 @@ class Client:
             self.server.close_all()
 
     # FTP server on another thread
+
+#
+SVHOST = '192.168.7.21'
+SVPORT = 8888
+CLNAME = socket.gethostname()
+CLHOST = socket.gethostbyname(CLNAME)
+CLPORT = 1111
+#
+class ClientApp:
+    def __init__(self, server_host, server_port, client_host, client_port):
+        client = Client(server_host, server_port, client_host, client_port)
+def main():
+    app = ClientApp(SVHOST, SVPORT, CLHOST, CLPORT)
+    print("Here")
+    # app.run()
+if __name__ == "__main__":
+    main()
