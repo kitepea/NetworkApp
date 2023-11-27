@@ -1,6 +1,6 @@
 from client import Client
 import socket
-SVHOST = '192.168.1.8'
+SVHOST = '192.168.7.21'
 SVPORT = 8888
 CLNAME = socket.gethostname()
 CLHOST = socket.gethostbyname(CLNAME)
